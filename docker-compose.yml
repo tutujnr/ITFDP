@@ -1,0 +1,51 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tea_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-tea_mvp}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/usr/src/app
+      - ./uploads:/usr/src/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  worker:
+    build:
+      context: ./backend
+    command: python -u app/worker/price_ingestor.py
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/usr/src/app
+    depends_on:
+      - db
+
+  frontend:
+    image: node:20
+    working_dir: /usr/src/app
+    volumes:
+      - ./frontend:/usr/src/app
+    command: sh -c "cd frontend && npm install && npm run start"
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+
+volumes:
+  pgdata:
