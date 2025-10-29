@@ -1,0 +1,38 @@
+"""
+Simple placeholder price ingestor.
+
+This worker creates a synthetic "Mombasa" price every minute and inserts into the prices table.
+Replace this with a real ingestor that calls a Mombasa auction API or scrapes a partner feed.
+"""
+import os
+import time
+import random
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
+
+# Import models relative path
+from app import models, crud
+
+engine = create_engine(DATABASE_URL, future=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
+
+def run():
+    print("Price ingestor started (synthetic)")
+    while True:
+        try:
+            price = round(random.uniform(200.0, 400.0), 2)  # KSH per kg synthetic
+            with SessionLocal() as db:
+                p = crud.insert_price(db, price_ksh_per_kg=price, source="mombasa_sim", note="synthetic")
+                print(f"{datetime.utcnow().isoformat()} inserted price {p.price_ksh_per_kg} KSH/kg")
+        except Exception as e:
+            print("Error in ingestor:", e)
+        time.sleep(60)  # wait for 60s
+
+if __name__ == "__main__":
+    run()
